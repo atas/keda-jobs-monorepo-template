@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-download
+  namespace: keda-jobs-prod
+  labels:
+    app: image-download
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: image-download
+  template:
+    metadata:
+      labels:
+        app: image-download
+    spec:
+      containers:
+        - name: image-download
+          image: ghcr.io/atas/keda-jobs-image-download:latest
+          ports:
+            - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: NATS_URL
+              value: "nats://nats.nats.svc.cluster.local:4222"
+            - name: NATS_STREAM
+              value: "keda-jobs-events"
+            - name: NATS_CONSUMER
+              value: "image-download-consumer"
+            - name: NATS_SUBJECT_FILTER
+              value: "image-download"
+            - name: R2_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: r2-secret
+                  key: R2_ACCOUNT_ID
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: r2-secret
+                  key: R2_ACCESS_KEY_ID
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2-secret
+                  key: R2_SECRET_ACCESS_KEY
+            - name: R2_BUCKET
+              value: "keda-jobs-prod"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: image-download
+  namespace: keda-jobs-prod
+spec:
+  scaleTargetRef:
+    name: image-download
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  pollingInterval: 10
+  cooldownPeriod: 60
+  triggers:
+    - type: nats-jetstream
+      metadata:
+        natsServerMonitoringEndpoint: "nats.nats.svc.cluster.local:8222"
+        account: "$G"
+        stream: "keda-jobs-events"
+        consumer: "image-download-consumer"
+        lagThreshold: "5"
+        activationLagThreshold: "0"

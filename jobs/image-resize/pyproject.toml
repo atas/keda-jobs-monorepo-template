@@ -1,0 +1,20 @@
+[project]
+name = "image-resize"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "Pillow>=10.4.0",
+    "shared-py",
+]
+
+[tool.uv.sources]
+shared-py = { path = "../../shared-py" }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

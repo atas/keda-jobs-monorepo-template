@@ -1,0 +1,383 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-keda-jobs
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+data:
+  keda-jobs-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "title": "Processed Messages",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "collapsed": false
+        },
+        {
+          "title": "Images Downloaded (total)",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "max_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}[$__range]) - min_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}[$__range])",
+              "legendFormat": "downloaded"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "thresholds": {
+                "steps": [
+                  { "color": "blue", "value": null }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "value",
+            "colorMode": "value"
+          }
+        },
+        {
+          "title": "Images Resized (total)",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "max_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}[$__range]) - min_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}[$__range])",
+              "legendFormat": "resized"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "value",
+            "colorMode": "value"
+          }
+        },
+        {
+          "title": "Processed per Minute",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "max_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}[1m]) - min_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}[1m])",
+              "legendFormat": "downloaded"
+            },
+            {
+              "expr": "max_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}[1m]) - min_over_time(jetstream_consumer_ack_floor_consumer_seq{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}[1m])",
+              "legendFormat": "resized"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix: /min",
+              "custom": {
+                "drawStyle": "bars",
+                "fillOpacity": 50,
+                "lineWidth": 1,
+                "pointSize": 5
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "title": "Consumer Lag",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+          "collapsed": false
+        },
+        {
+          "title": "image-download consumer lag",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 10 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "jetstream_consumer_num_pending{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}",
+              "legendFormat": "pending"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "value",
+            "colorMode": "value"
+          }
+        },
+        {
+          "title": "image-resize consumer lag",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 10 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "jetstream_consumer_num_pending{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}",
+              "legendFormat": "pending"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 20 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "value",
+            "colorMode": "value"
+          }
+        },
+        {
+          "title": "image-download max in-flight",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 10 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "max_over_time(jetstream_consumer_num_ack_pending{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}[$__range]) - min_over_time(jetstream_consumer_num_ack_pending{stream_name=\"keda-jobs-events\", consumer_name=\"image-download-consumer\"}[$__range])",
+              "legendFormat": "in-flight"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "value",
+            "colorMode": "value"
+          }
+        },
+        {
+          "title": "image-resize max in-flight",
+          "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 10 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "max_over_time(jetstream_consumer_num_ack_pending{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}[$__range]) - min_over_time(jetstream_consumer_num_ack_pending{stream_name=\"keda-jobs-events\", consumer_name=\"image-resize-consumer\"}[$__range])",
+              "legendFormat": "in-flight"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "0",
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "textMode": "value",
+            "colorMode": "value"
+          }
+        },
+        {
+          "title": "Stream & Consumer Metrics",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "collapsed": false
+        },
+        {
+          "title": "Consumer Lag Over Time",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "jetstream_consumer_num_pending{stream_name=\"keda-jobs-events\"}",
+              "legendFormat": "{{ consumer_name }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "lineWidth": 2
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "title": "Stream Messages",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "jetstream_stream_total_messages{stream_name=\"keda-jobs-events\"}",
+              "legendFormat": "total messages"
+            },
+            {
+              "expr": "jetstream_stream_total_bytes{stream_name=\"keda-jobs-events\"}",
+              "legendFormat": "total bytes"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "pointSize": 5,
+                "lineWidth": 2
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "title": "Pod Count by Job",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "count by (label_app) (kube_pod_info{namespace=\"keda-jobs-prod\"})",
+              "legendFormat": "{{ label_app }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "title": "Redeliveries",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "targets": [
+            {
+              "expr": "jetstream_consumer_num_redelivered{stream_name=\"keda-jobs-events\"}",
+              "legendFormat": "{{ consumer_name }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineWidth": 2
+              },
+              "thresholds": {
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "title": "Logs",
+          "type": "row",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+          "collapsed": false
+        },
+        {
+          "title": "Application Logs (keda-jobs-prod)",
+          "type": "logs",
+          "gridPos": { "h": 14, "w": 24, "x": 0, "y": 32 },
+          "datasource": { "type": "loki", "uid": "loki" },
+          "targets": [
+            {
+              "expr": "{namespace=\"keda-jobs-prod\"}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "showLabels": false,
+            "showCommonLabels": false,
+            "wrapLogMessage": true,
+            "prettifyLogMessage": false,
+            "enableLogDetails": true,
+            "sortOrder": "Descending",
+            "dedupStrategy": "none"
+          }
+        }
+      ],
+      "schemaVersion": 39,
+      "templating": {
+        "list": [
+          {
+            "name": "DS_PROMETHEUS",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": { "text": "Prometheus", "value": "prometheus" }
+          }
+        ]
+      },
+      "time": { "from": "now-1h", "to": "now" },
+      "title": "Keda Jobs",
+      "uid": "keda-jobs-nats-jetstream",
+      "version": 1
+    }

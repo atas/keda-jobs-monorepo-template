@@ -1,0 +1,53 @@
+# Service account for GitHub Actions deployments
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: github-deploy
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: github-deploy
+rules:
+  # Deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "create", "patch", "update"]
+  # KEDA ScaledObjects
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    verbs: ["get", "list", "create", "patch", "update"]
+  # ConfigMaps (for config updates)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  # Pods (for status checks)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-deploy
+subjects:
+  - kind: ServiceAccount
+    name: github-deploy
+roleRef:
+  kind: Role
+  name: github-deploy
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Secret for the service account token (for k8s < 1.24 compatibility)
+# In k8s 1.24+, tokens are requested via TokenRequest API
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-deploy-token
+  annotations:
+    kubernetes.io/service-account.name: github-deploy
+type: kubernetes.io/service-account-token
