@@ -34,3 +34,4 @@ secrets.yaml
 
 # Local build artifacts
 *.local
+*.egg-info/

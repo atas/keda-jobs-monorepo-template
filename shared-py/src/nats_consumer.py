@@ -31,6 +31,19 @@ async def _run_health_server():
     return runner
 
 
+async def _handle_failure(msg, js, max_deliveries):
+    """Nak the message or send to dead-letter on last delivery attempt."""
+    meta = msg.metadata()
+    if max_deliveries > 0 and meta.num_delivered >= max_deliveries:
+        dead_letter = {"subject": msg.subject, "data": json.loads(msg.data.decode()), "num_delivered": meta.num_delivered}
+        await js.publish("dead-letter", json.dumps(dead_letter).encode())
+        await msg.ack()
+        logger.warning(f"Message sent to dead-letter after {meta.num_delivered} deliveries")
+    else:
+        await msg.nak(delay=30)
+        logger.info(f"Nacked message (delivery {meta.num_delivered}/{max_deliveries})")
+
+
 async def _run(handler, job_name, concurrency):
     nats_url = os.environ.get("NATS_URL", "nats://localhost:4222")
     stream = os.environ.get("NATS_STREAM", "keda-jobs-events")
@@ -51,6 +64,11 @@ async def _run(handler, job_name, concurrency):
         durable=consumer_name,
         stream=stream,
     )
+
+    # Query max_deliver from NATS consumer config for dead-letter handling
+    consumer_info = await js.consumer_info(stream, consumer_name)
+    max_deliveries = consumer_info.config.max_deliver
+    logger.info(f"Max deliveries: {max_deliveries}")
 
     shutdown = asyncio.Event()
 
@@ -84,11 +102,11 @@ async def _run(handler, job_name, concurrency):
                 await msg.ack()
                 logger.info("Message processed and acked")
             except asyncio.TimeoutError:
-                logger.error("Handler timed out after 5 minutes, nacking")
-                await msg.nak(delay=30)
+                logger.error("Handler timed out after 5 minutes")
+                await _handle_failure(msg, js, max_deliveries)
             except Exception:
-                logger.exception("Handler failed, nacking message")
-                await msg.nak(delay=30)
+                logger.exception("Handler failed")
+                await _handle_failure(msg, js, max_deliveries)
 
     logger.info("Shutting down...")
     await sub.unsubscribe()

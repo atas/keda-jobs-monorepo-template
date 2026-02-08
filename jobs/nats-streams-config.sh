@@ -17,7 +17,7 @@ fi
 # Create stream (idempotent — will update if exists)
 echo "==> Creating keda-jobs-events stream..."
 nats -s "$NATS_URL" stream add keda-jobs-events \
-  --subjects="image-download,image-downloaded" \
+  --subjects="image-download,image-downloaded,dead-letter" \
   --storage=file \
   --retention=work \
   --max-msgs=-1 \
@@ -38,7 +38,8 @@ nats -s "$NATS_URL" consumer add keda-jobs-events image-download-consumer \
   --filter="image-download" \
   --ack=explicit \
   --deliver=all \
-  --max-deliver=5 \
+  --max-deliver=15 \
+  --backoff=linear --backoff-min=1m --backoff-max=24h --backoff-steps=15 \
   --wait=600s \
   --replay=instant \
   --pull \
@@ -50,7 +51,8 @@ nats -s "$NATS_URL" consumer add keda-jobs-events image-resize-consumer \
   --filter="image-downloaded" \
   --ack=explicit \
   --deliver=all \
-  --max-deliver=5 \
+  --max-deliver=15 \
+  --backoff=linear --backoff-min=1m --backoff-max=24h --backoff-steps=15 \
   --wait=600s \
   --replay=instant \
   --pull \

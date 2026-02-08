@@ -137,6 +137,30 @@ The GitHub Actions workflow automatically:
 - Builds and pushes Docker images to GHCR
 - Deploys to Kubernetes on main branch merges
 
+## Dead Letter Queue
+
+Messages that fail all retry attempts (15 deliveries with linear backoff over ~3 days) are published to the `dead-letter` subject in the `keda-jobs-events` stream and acked so they don't block the consumer.
+
+```bash
+# View dead-letter messages
+nats -s localhost:4222 stream view keda-jobs-events --subject dead-letter
+
+# Check how many dead-letter messages exist
+nats -s localhost:4222 stream info keda-jobs-events --subjects
+
+# Replay a dead-letter message (re-publish to original subject)
+nats -s localhost:4222 stream get keda-jobs-events --subject dead-letter --seq <seq_number> | jq -r '.data' | nats -s localhost:4222 pub <original-subject>
+```
+
+Each dead-letter message contains:
+```json
+{
+  "subject": "image-download",
+  "data": { "url": "https://..." },
+  "num_delivered": 15
+}
+```
+
 ## Troubleshooting
 
 ```bash

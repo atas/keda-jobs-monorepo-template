@@ -23,11 +23,11 @@ RUN uv run pytest
 FROM base AS production
 
 # Run as non-root user
-RUN useradd -r -u 1000 appuser
+RUN useradd -r -u 1000 -m appuser
 USER appuser
 
 # Health check port
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["/app/jobs/image-resize/.venv/bin/python", "main.py"]
