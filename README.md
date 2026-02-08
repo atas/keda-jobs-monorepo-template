@@ -4,44 +4,32 @@ Event-driven job execution platform using NATS JetStream for messaging and KEDA 
 
 ## Architecture
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│  nats namespace                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐ │
-│  │  NATS JetStream (StatefulSet)                                     │ │
-│  │  - Stream: keda-jobs-events                                       │ │
-│  │  - Subjects: image-download, image-downloaded                     │ │
-│  └──────────────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    (Jobs pull messages directly)
-                                    │
-┌────────────────────────────────────────────────────────────────────────┐
-│  keda-jobs-prod namespace                                              │
-│                                                                        │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │  KEDA ScaledObjects                                              │  │
-│  │  - Watches consumer lag via NATS monitoring endpoint             │  │
-│  │  - Scales Deployments 0→N based on pending messages              │  │
-│  └──────────────────────┬──────────────────────────────────────────┘  │
-│                         │                                              │
-│           ┌─────────────┴──────────────┐                               │
-│           ▼                            ▼                               │
-│   ┌────────────────┐          ┌────────────────┐                       │
-│   │ image-download │          │ image-resize   │                       │
-│   │ consumer       │          │ consumer       │                       │
-│   │ filter:        │          │ filter:        │                       │
-│   │ image-download │          │ image-downloaded│                      │
-│   └───────┬────────┘          └───────┬────────┘                       │
-│           ▼                           ▼                                │
-│   ┌────────────────┐          ┌────────────────┐                       │
-│   │ image-download │          │ image-resize   │                       │
-│   │ (Deployment)   │          │ (Deployment)   │                       │
-│   └───────┬────────┘          └────────────────┘                       │
-│           │                                                            │
-│           │ publishes image-downloaded                                 │
-│           └──────────► NATS ──► image-resize consumer ──► image-resize │
-└────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant P as Publisher
+    participant N as NATS JetStream
+    participant K as KEDA
+    participant D as Deployment (replicas: 0)
+    participant J as Job Pod
+
+    P->>N: Publish event to subject
+    N->>N: Store in stream, consumer lag increases
+
+    loop Every 10s
+        K->>N: Poll consumer lag via monitoring endpoint
+    end
+
+    K->>D: Lag > 0, scale 0→N
+    D->>J: Pod starts
+
+    J->>N: Pull message from durable consumer
+    J->>J: Process event
+    J->>N: Ack message
+    J->>N: Publish next event to downstream subject
+    N->>N: Consumer lag decreases
+
+    Note over K,D: After 60s cooldown with lag=0
+    K->>D: Scale N→0
 ```
 
 ## Prerequisites
@@ -94,40 +82,21 @@ kubectl logs -l app=image-download -n keda-jobs-prod -f
 kubectl logs -l app=image-resize -n keda-jobs-prod -f
 ```
 
-Expected flow:
-1. `image-download` message received by image-download job
-2. image-download downloads image, uploads to R2 `images/`, publishes `image-downloaded`
-3. image-resize receives `image-downloaded`, resizes to max 200px, uploads to R2 `images_resized/`
-
-## Repository Structure
-
-```
-keda-jobs/
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # Build & deploy changed jobs
-├── k8s/
-│   ├── kustomize/
-│   │   ├── base/                   # Shared manifests (namespace, rbac)
-│   │   └── overlays/prod/          # Production overlay
-│   ├── setup-scripts/              # Setup/teardown shell scripts
-│   ├── manual/prod/
-│   │   └── r2-secret.yaml.tpl      # R2 secret template (envsubst)
-│   ├── nats/                       # NATS StatefulSet + JetStream
-│   ├── monitoring/                 # ServiceMonitors, Grafana dashboards
-│   └── Makefile                    # Utility targets
-├── jobs/
-│   ├── nats-streams-config.sh      # NATS stream/consumer setup
-│   ├── image-download/             # Downloads images, uploads to R2
-│   └── image-resize/               # Resizes images to max 200px
-├── shared-py/                      # Shared Python package
-├── Makefile
-└── README.md
-```
-
 ## Adding New Jobs
 
-See `CLAUDE.md` for detailed instructions and templates.
+1. Copy an existing job directory (e.g. `jobs/image-download/`) to `jobs/<yourjob>/`
+2. Update the following files in your new job:
+   - `main.py` — Your job logic
+   - `Dockerfile` — Update the job name in `COPY` paths
+   - `service.yaml` — Update names, image, consumer, and subject filter
+3. Add your NATS consumer in `jobs/nats-streams-config.sh` and run it
+4. Add your service to `k8s/setup-scripts/setup-app.sh` and `k8s/setup-scripts/clean-all.sh`
+5. Build and deploy:
+   ```bash
+   make build JOB=yourjob
+   make push JOB=yourjob
+   kubectl apply -f jobs/yourjob/service.yaml
+   ```
 
 ## CI/CD
 
