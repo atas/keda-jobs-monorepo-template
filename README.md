@@ -2,6 +2,8 @@
 
 Event-driven job execution platform using NATS JetStream for messaging and KEDA for autoscaling. Jobs scale 0→N based on consumer lag and pull messages directly from JetStream.
 
+[![Video](https://img.youtube.com/vi/FkHuq1QRRC4/maxresdefault.jpg)](https://www.youtube.com/watch?v=FkHuq1QRRC4)
+
 ## Architecture
 
 ```mermaid
